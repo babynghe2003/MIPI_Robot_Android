@@ -1,45 +1,37 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import { Buffer } from 'buffer';
+import { useMemo } from 'react';
+import { StatusBar, StyleSheet, useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { BleControllerProvider } from './src/hooks/useBleController';
+import { RootNavigator } from './src/navigation/RootNavigator';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const globalForBuffer = globalThis as typeof globalThis & { Buffer?: typeof Buffer };
+
+if (!globalForBuffer.Buffer) {
+  globalForBuffer.Buffer = Buffer;
+}
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
+  const barStyle = useMemo(() => (isDarkMode ? 'light-content' : 'dark-content'), [isDarkMode]);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <SafeAreaProvider>
+        <BleControllerProvider>
+          <StatusBar barStyle={barStyle} backgroundColor="transparent" translucent />
+          <RootNavigator />
+        </BleControllerProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
+export default App;
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
   },
 });
-
-export default App;

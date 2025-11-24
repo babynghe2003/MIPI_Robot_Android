@@ -1,97 +1,79 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+## Android Controller App
 
-# Getting Started
+Modern React Native companion app that mirrors the robot's voice/gamepad command set. It discovers the ESP32-S3 robot over BLE, streams movement commands (press-and-hold to move, release to stop), and exposes a dedicated PID tuning workspace that mirrors the controls found in `pid_control.py`.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+### Feature Overview
 
-## Step 1: Start Metro
+- **One-tap pairing** – filters BLE advertisements to devices whose name starts with `MIPIRobot`, handles Android 12+ Bluetooth permissions, and shows active scan status chips.
+- **Gamepad-grade driving** – forward/back/left/right pads support press-and-hold gestures, instantly issuing `COMMAND_*` opcodes over BLE and cancelling on release.
+- **PID tuning console** – dedicated screen with steppers/text inputs for Kp/Ki/Kd, live read-back from the robot, and safe min/max clamps.
+- **Stateful design** – shared BLE controller provider backed by `react-native-ble-plx` + Zustand store so both screens stay in sync.
+- **Production-ready UX** – safe-area aware layout, dark-on-light palette, gesture-handler integration, and bottom-tab navigation for quick switching.
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### BLE Contract
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+| Purpose | UUID |
+| --- | --- |
+| Custom control service | `12345678-1234-5678-1234-56789abcdef0` |
+| Movement characteristic | `12345678-1234-5678-1234-56789abcdef1` |
+| PID gains characteristic | `12345678-1234-5678-1234-56789abcdef2` |
+
+Payloads are UTF-8 strings that are base64-encoded before writing. Movement commands use the tokens defined in `src/constants/ble.ts` (e.g., `COMMAND_FORWARD`, `COMMAND_STOP`). PID updates are JSON objects: `{ "kp": number, "ki": number, "kd": number }`.
+
+### Project Structure
+
+```
+android_controller_app
+├── App.tsx                # Providers + navigation shell
+├── src
+│   ├── components         # Reusable UI (buttons, PID cards, status pills)
+│   ├── constants          # BLE UUIDs, PID defaults, command map
+│   ├── hooks              # BLE controller provider built on react-native-ble-plx
+│   ├── navigation         # Bottom-tab navigator
+│   ├── screens            # Control and PID tuning screens
+│   └── store              # Zustand store for shared state
+```
+
+### Prerequisites
+
+- React Native environment set up for Android (`adb`, Java 17+, Android SDK). Follow the official [environment setup guide](https://reactnative.dev/docs/set-up-your-environment) if needed.
+- Robot firmware implementing the BLE service/characteristics above.
+- Android 12+ device (for BLE permissions flow) or emulator with BLE support.
+
+### Install & Run
 
 ```sh
-# Using npm
+cd android_controller_app
+npm install
+
+# Start Metro bundler
 npm start
 
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+# In a second terminal, launch the Android build
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+### Using the App
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+1. Open the **Điều khiển** tab and tap **Quét & ghép nối**. The app requests SCAN/CONNECT permissions automatically on Android 12+.
+2. Choose your robot from the carousel (device names must start with `MIPIRobot`) or tap **Kết nối nhanh** to connect to the first match.
+3. Hold the directional pads to move the robot; releasing the button immediately publishes `COMMAND_STOP`.
+4. Switch to **PID Tuning** to adjust gains. Use the `+/-` steppers or type the value, then press **Gửi lên robot**. Tap **Đọc giá trị** to fetch the current gains from the robot.
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### Android-specific Notes
 
-```sh
-bundle install
-```
+- `AndroidManifest.xml` already declares all required Bluetooth + location permissions for API 31+.
+- `react-native-reanimated` and `react-native-gesture-handler` are configured in `babel.config.js` and `index.js`.
+- Buffer polyfill is installed and registered inside `App.tsx` so BLE payloads can be encoded/decoded on-device without extra dependencies.
 
-Then, and every time you update your native dependencies, run:
+### Troubleshooting
 
-```sh
-bundle exec pod install
-```
+- **No devices in the list**: Ensure the robot advertises the custom service UUID and its name begins with `MIPIRobot`. Pull-to-refresh or tap **Quét & ghép nối** again to restart scanning.
+- **Cannot connect**: Verify the robot exposes the control/ PID characteristics with write permissions. BLE pairing fails if another phone is already connected.
+- **PID not updating**: Confirm the firmware echoes back the JSON payload through the PID characteristic; the app logs an alert if the write fails.
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### Next Steps
 
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- Add telemetry (battery, IMU readings) via additional BLE characteristics and display them in the control screen.
+- Hook the pairing flow into Android's system pairing dialog if the robot requires bonding.
+- Localize static copy (`vi`, `en`) using a translation library if needed.
