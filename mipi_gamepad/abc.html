@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robot Controller Dark Orange</title>
+    <style>
+        :root {
+            --bg-color: #1a1b1e;
+            --surface-color: #212428;
+            --shadow-light: rgba(255, 255, 255, 0.05);
+            --shadow-dark: rgba(0, 0, 0, 0.6);
+            --accent-color: #ff8c00; /* Màu cam chủ đạo */
+            --accent-glow: rgba(255, 140, 0, 0.4);
+            --text-color: #888;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Ngăn cuộn trang khi thao tác */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- Main Container --- */
+        .controller-wrapper {
+            width: 100%;
+            height: 100%;
+            max-width: 900px;
+            max-height: 450px;
+            background: var(--surface-color);
+            position: relative;
+            border-radius: 40px;
+            box-shadow: inset 0 0 100px #000;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr 1fr;
+            padding: 20px;
+        }
+
+        /* --- Common Button Styles --- */
+        .btn {
+            background: linear-gradient(145deg, #26292e, #1e2125);
+            box-shadow: 5px 5px 10px var(--shadow-dark), 
+                       -2px -2px 10px var(--shadow-light);
+            border: none;
+            color: #aaa;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            transition: all 0.1s ease;
+            position: relative;
+        }
+
+        .btn:active, .btn.active {
+            box-shadow: inset 3px 3px 6px var(--shadow-dark), 
+                       inset -3px -3px 6px var(--shadow-light);
+            color: var(--accent-color);
+        }
+
+        /* --- Orange Special Buttons --- */
+        .btn-orange {
+            background: var(--surface-color);
+            border: 1px solid rgba(255, 140, 0, 0.1);
+            color: var(--accent-color);
+            text-shadow: 0 0 5px var(--accent-glow);
+            box-shadow: 4px 4px 8px var(--shadow-dark), 
+                       -2px -2px 5px var(--shadow-light),
+                       inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        
+        .btn-orange:active {
+            background: var(--accent-color);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent-color);
+            text-shadow: none;
+        }
+
+        /* --- SECTION: LEFT (Slider) --- */
+        .left-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Slider Label */
+        .label-text {
+            font-size: 10px;
+            letter-spacing: 1px;
+            margin-top: 10px;
+            color: var(--accent-color);
+            opacity: 0.8;
+            font-weight: bold;
+        }
+
+        /* Vertical Slider Track */
+        .slider-container {
+            width: 60px;
+            height: 220px;
+            background: #151618;
+            border-radius: 30px;
+            box-shadow: inset 4px 4px 8px #000, 
+                       inset -2px -2px 5px var(--shadow-light);
+            position: relative;
+            margin-right: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .slider-track-line {
+            width: 4px;
+            height: 80%;
+            background: #000;
+            border-radius: 2px;
+        }
+
+        /* Slider Handle */
+        .slider-handle {
+            width: 50px;
+            height: 80px;
+            background: linear-gradient(180deg, #ff9d2e, #e67e00);
+            border-radius: 15px;
+            position: absolute;
+            top: 50%; /* JS will move this */
+            left: 5px; /* Centered horizontally (60-50)/2 */
+            transform: translateY(-50%);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5), 
+                        inset 2px 2px 5px rgba(255,255,255,0.4),
+                        inset -2px -2px 5px rgba(0,0,0,0.2);
+            cursor: grab;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .slider-handle:active {
+            cursor: grabbing;
+            filter: brightness(1.1);
+        }
+
+        /* Grip lines on slider */
+        .grip-line {
+            width: 25px;
+            height: 2px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 2px;
+        }
+
+        /* Speed Indicator Bar */
+        .speed-indicator {
+            position: absolute;
+            left: -10px;
+            top: 20px;
+            bottom: 20px;
+            width: 4px;
+            background: #333;
+            border-radius: 2px;
+        }
+        .speed-fill {
+            position: absolute;
+            bottom: 50%;
+            width: 100%;
+            height: 0%; /* JS controls this */
+            background: var(--accent-color);
+            box-shadow: 0 0 8px var(--accent-color);
+            transition: height 0.1s;
+        }
+
+
+        /* --- SECTION: CENTER --- */
+        .center-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+
+        /* Touchpad Area */
+        .touchpad {
+            width: 180px;
+            height: 100px;
+            background: linear-gradient(160deg, #25282c, #1a1c1f);
+            border-radius: 10px 10px 30px 30px;
+            box-shadow: 5px 5px 15px var(--shadow-dark),
+                       -2px -2px 10px var(--shadow-light),
+                       inset 0 0 20px rgba(0,0,0,0.5);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            position: relative;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 10px;
+        }
+        
+        .touchpad-led {
+            width: 40px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(255,255,255,0.1);
+        }
+
+        /* Menu Buttons Row */
+        .menu-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .btn-pill {
+            padding: 8px 16px;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+            border-radius: 8px;
+            min-width: 60px;
+        }
+
+        /* Function Keys (Share/Option) */
+        .function-keys {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            position: absolute;
+            top: 60px;
+        }
+        
+        .pill-vertical {
+            width: 20px;
+            height: 50px;
+            border-radius: 10px;
+            font-size: 8px;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+        }
+
+        /* Bottom Analog Sticks Area (Visual only based on image) */
+        .analog-container {
+            display: flex;
+            gap: 60px;
+            margin-top: auto;
+        }
+
+        .analog-stick {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #333, #000);
+            box-shadow: 0 5px 10px #000, inset 0 0 10px rgba(0,0,0,0.8);
+            border: 2px solid #111;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .analog-stick.orange-rim {
+             border: 2px solid #553300;
+             box-shadow: 0 0 15px rgba(255, 140, 0, 0.1);
+        }
+        
+        .stick-cap {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #444, #1a1a1a);
+            box-shadow: 0 5px 5px rgba(0,0,0,0.5), inset 0 2px 2px rgba(255,255,255,0.1);
+            position: relative;
+        }
+        
+        .stick-cap.orange {
+            background: radial-gradient(circle at 30% 30%, #ffaa33, #cc6600);
+            box-shadow: 0 0 10px var(--accent-color), inset 0 2px 5px rgba(255,255,255,0.4);
+        }
+
+        .stick-cap::after {
+            content: '';
+            position: absolute;
+            top: 5px; left: 5px; right: 5px; bottom: 5px;
+            border-radius: 50%;
+            border: 1px dashed rgba(0,0,0,0.3); /* Texture effect */
+        }
+
+
+        /* --- SECTION: RIGHT (Buttons) --- */
+        .right-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Shoulder Buttons (Top Right corner simulation) */
+        .shoulders {
+            position: absolute;
+            top: -10px;
+            right: 40px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .shoulders-left {
+            position: absolute;
+            top: -10px;
+            left: 40px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-shoulder {
+            width: 70px;
+            height: 35px;
+            border-radius: 0 0 10px 10px;
+            font-size: 12px;
+            background: #e6e6e6; /* Màu trắng xám như hình gốc */
+            color: #333;
+            box-shadow: 0 5px 5px rgba(0,0,0,0.5);
+            z-index: 5;
+        }
+        
+        .btn-shoulder.orange-style {
+            background: #ffaa33;
+            color: #441100;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        /* D-Pad / Action Buttons Area */
+        .dpad-grid {
+            display: grid;
+            grid-template-columns: 60px 60px 60px;
+            grid-template-rows: 60px 60px 60px;
+            gap: 5px;
+            margin-top: 30px;
+        }
+
+        .btn-circle {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #3a3a3a, #1a1a1a);
+            box-shadow: 5px 5px 10px var(--shadow-dark), -2px -2px 5px var(--shadow-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            color: #444;
+            transition: all 0.1s;
+        }
+        
+        /* Glass/Crystal Orange Button Style */
+        .btn-glass-orange {
+            background: radial-gradient(130% 130% at 20% 20%, rgba(255, 180, 60, 0.1) 0%, rgba(255, 140, 0, 0.4) 100%);
+            border: 1px solid rgba(255, 140, 0, 0.3);
+            box-shadow: 
+                inset 0 0 10px rgba(255, 140, 0, 0.2),
+                0 5px 10px #000,
+                0 0 5px var(--accent-glow);
+            color: #ffaa33;
+            text-shadow: 0 0 5px var(--accent-color);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-glass-orange::before {
+            content: '';
+            position: absolute;
+            top: 5px; left: 10px;
+            width: 20px; height: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        .btn-glass-orange:active {
+            transform: scale(0.95);
+            background: rgba(255, 140, 0, 0.6);
+            box-shadow: 0 0 15px var(--accent-color);
+            color: #fff;
+        }
+
+        /* Grid positioning */
+        .pos-top { grid-column: 2; grid-row: 1; }
+        .pos-left { grid-column: 1; grid-row: 2; }
+        .pos-right { grid-column: 3; grid-row: 2; }
+        .pos-bottom { grid-column: 2; grid-row: 3; }
+
+        /* Settings Icon */
+        .settings-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 20px;
+            color: #555;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="controller-wrapper">
+        <div class="settings-icon">⚙️</div>
+
+        <div class="left-section">
+            <div class="shoulders-left">
+                <button class="btn btn-shoulder orange-style">L1</button>
+                <button class="btn btn-shoulder orange-style">L2</button>
+            </div>
+
+            <div class="speed-indicator">
+                <div class="speed-fill" id="speedFill"></div>
+            </div>
+
+            <div class="slider-container" id="sliderTrack">
+                <div class="slider-track-line"></div>
+                <div class="slider-handle" id="sliderHandle">
+                    <div class="grip-line"></div>
+                    <div class="grip-line"></div>
+                    <div class="grip-line"></div>
+                </div>
+            </div>
+            <div class="label-text">FORWARD/BACKWARD</div>
+
+             <div style="margin-top: 40px;">
+                <div class="analog-stick">
+                    <div class="stick-cap"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="center-section">
+            <div class="touchpad">
+                <div class="touchpad-led"></div>
+            </div>
+
+            <div class="function-keys">
+                <button class="btn pill-vertical">SHARE</button>
+                <button class="btn pill-vertical">OPTIONS</button>
+            </div>
+
+            <div class="menu-row">
+                <button class="btn btn-orange btn-pill" onclick="console.log('Mode Clicked')">MODE</button>
+                <button class="btn btn-orange btn-pill" onclick="toggleCalibrate()">CALIBRATE</button>
+                <button class="btn btn-orange btn-pill" onclick="console.log('Home Clicked')">HOME</button>
+            </div>
+
+            <button class="btn btn-circle" style="width: 40px; height: 40px; margin-bottom: 20px; box-shadow: inset 0 0 5px #000;">
+                <span style="font-size:12px; font-weight:900; color:#555">PS</span>
+            </button>
+
+             <div class="analog-stick orange-rim">
+                <div class="stick-cap orange"></div>
+            </div>
+        </div>
+
+        <div class="right-section">
+             <div class="shoulders">
+                <button class="btn btn-shoulder orange-style">R2</button>
+                <button class="btn btn-shoulder orange-style">R1</button>
+            </div>
+
+            <div class="dpad-grid">
+                <button class="btn btn-circle btn-glass-orange pos-top" onpointerdown="sendCmd('UP')" onpointerup="sendCmd('STOP')">
+                    ↑
+                </button>
+                <button class="btn btn-circle btn-glass-orange pos-left" onpointerdown="sendCmd('LEFT')" onpointerup="sendCmd('STOP')">
+                    ←
+                </button>
+                <button class="btn btn-circle btn-glass-orange pos-right" onpointerdown="sendCmd('RIGHT')" onpointerup="sendCmd('STOP')">
+                    →
+                </button>
+                <button class="btn btn-circle btn-glass-orange pos-bottom" onpointerdown="sendCmd('DOWN')" onpointerup="sendCmd('STOP')">
+                    ↓
+                </button>
+            </div>
+            <div class="label-text" style="margin-top: 20px;">TURN LEFT/RIGHT</div>
+        </div>
+    </div>
+
+    <script>
+        // --- SLIDER LOGIC ---
+        const sliderHandle = document.getElementById('sliderHandle');
+        const sliderTrack = document.getElementById('sliderTrack');
+        const speedFill = document.getElementById('speedFill');
+        
+        let isDragging = false;
+        let startY, startTop;
+        let trackHeight, handleHeight;
+
+        // Cập nhật vị trí slider và gửi dữ liệu
+        function updateSliderPosition(clientY) {
+            const rect = sliderTrack.getBoundingClientRect();
+            trackHeight = rect.height;
+            handleHeight = sliderHandle.offsetHeight;
+            
+            // Tính toán vị trí tương đối
+            let y = clientY - rect.top - (handleHeight / 2);
+            
+            // Giới hạn trong track
+            const maxTop = trackHeight - handleHeight;
+            if (y < 0) y = 0;
+            if (y > maxTop) y = maxTop;
+
+            sliderHandle.style.top = y + 'px';
+
+            // Tính toán giá trị (-100 đến 100)
+            // Center point is (maxTop / 2) which equals 0 speed
+            const center = maxTop / 2;
+            const value = -1 * Math.round(((y - center) / center) * 100); 
+            
+            // Update Speed Indicator Visuals
+            const percentage = ((center - (y - center)) / maxTop) * 100; // Rough visual logic
+            
+            if (value > 0) {
+                speedFill.style.bottom = '50%';
+                speedFill.style.height = (value / 2) + '%';
+                speedFill.style.background = '#ff8c00';
+            } else {
+                speedFill.style.bottom = (50 - (Math.abs(value)/2)) + '%';
+                speedFill.style.height = (Math.abs(value) / 2) + '%';
+                speedFill.style.background = '#ff4400'; // Đỏ hơn khi lùi
+            }
+
+            console.log(`Throttle: ${value}`);
+        }
+
+        function resetSlider() {
+            const rect = sliderTrack.getBoundingClientRect();
+            const maxTop = rect.height - sliderHandle.offsetHeight;
+            const center = maxTop / 2;
+            
+            // Animation quay về giữa
+            sliderHandle.style.transition = 'top 0.2s ease-out';
+            sliderHandle.style.top = center + 'px';
+            
+            setTimeout(() => {
+                sliderHandle.style.transition = ''; // Xóa transition để drag mượt
+            }, 200);
+
+            speedFill.style.height = '0%';
+            console.log(`Throttle: 0 (Reset)`);
+        }
+
+        // Event Listeners cho Slider (Touch & Mouse)
+        sliderHandle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            updateSliderPosition(e.clientY);
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            updateSliderPosition(e.clientY);
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                resetSlider();
+            }
+        });
+
+        // Touch support
+        sliderHandle.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            updateSliderPosition(e.touches[0].clientY);
+        }, {passive: false});
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault(); 
+            updateSliderPosition(e.touches[0].clientY);
+        }, {passive: false});
+
+        document.addEventListener('touchend', () => {
+            if (isDragging) {
+                isDragging = false;
+                resetSlider();
+            }
+        });
+
+        // Initial Reset
+        window.onload = resetSlider;
+
+        // --- BUTTON LOGIC ---
+        function sendCmd(cmd) {
+            console.log(`Command sent: ${cmd}`);
+            // Ở đây bạn có thể thêm logic gọi Bluetooth API
+        }
+
+        function toggleCalibrate() {
+            alert("Switching to Calibration Mode (Popup View)");
+        }
+    </script>
+</body>
+</html>

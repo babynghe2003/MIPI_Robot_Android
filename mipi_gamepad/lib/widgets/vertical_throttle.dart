@@ -12,7 +12,7 @@ class VerticalThrottle extends StatefulWidget {
 
 class _VerticalThrottleState extends State<VerticalThrottle> {
   double _value = 0.0; // -1.0 to 1.0
-  final double _thumbHeight = 60.0;
+  final double _thumbHeight = 70.0;
 
   void _updatePosition(double localY, double maxHeight) {
     // Center is maxHeight / 2
@@ -43,7 +43,7 @@ class _VerticalThrottleState extends State<VerticalThrottle> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        double height = constraints.maxHeight > 0 ? constraints.maxHeight : 200;
+        double height = constraints.maxHeight > 0 ? constraints.maxHeight : 280;
         double width = 80;
         double center = height / 2;
         double maxMove = (height - _thumbHeight) / 2;
@@ -69,7 +69,7 @@ class _VerticalThrottleState extends State<VerticalThrottle> {
           child: Container(
             width: width,
             height: height,
-            decoration: AppStyles.neumorphicDecoration(pressed: true, borderRadius: 40),
+            decoration: AppStyles.neumorphicDecoration( borderRadius: 40),
             child: Stack(
               children: [
                 // Center Line
