@@ -1,0 +1,25 @@
+name: mipi_gamepad
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_blue_plus: 1.34.5
+  flutter_bluetooth_serial_plus: ^0.5.1
+  flutter_joystick: ^0.2.2
+  permission_handler: ^12.0.1
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
