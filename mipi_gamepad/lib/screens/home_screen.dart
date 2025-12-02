@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -31,9 +32,18 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _voiceCommandEnabled = false;
   bool _isStanding = true;
 
+  late final _RateLimitedSender _velocitySender;
+  late final _RateLimitedSender _yawSender;
+  late final _RateLimitedSender _leftLegSender;
+  late final _RateLimitedSender _rightLegSender;
+
   @override
   void initState() {
     super.initState();
+    _velocitySender = _RateLimitedSender(onSend: _sendVelocity);
+    _yawSender = _RateLimitedSender(onSend: _sendYaw);
+    _leftLegSender = _RateLimitedSender(onSend: _sendLeftLegHeight);
+    _rightLegSender = _RateLimitedSender(onSend: _sendRightLegHeight);
     // Force landscape
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -45,6 +55,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _velocitySender.dispose();
+    _yawSender.dispose();
+    _leftLegSender.dispose();
+    _rightLegSender.dispose();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -52,52 +66,117 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _sendControlData() {
-    if (!_isStarted) return;
-    int speed = (_throttleValue * 100).toInt();
-    int turn = (_turnValue * 100).toInt();
-    
-    // Extended format with joystick data
-    String data = "SPEED:$speed|TURN:$turn|LX:${(_leftJoystickX * 100).toInt()}|LY:${(_leftJoystickY * 100).toInt()}|RX:${(_rightJoystickX * 100).toInt()}|RY:${(_rightJoystickY * 100).toInt()}\n";
-    context.read<BluetoothManager>().sendData(data);
-  }
-
   void _onThrottleChanged(double value) {
     _throttleValue = value;
-    _sendControlData();
+    _velocitySender.update(value);
   }
 
   void _onTurnChanged(double value) {
     _turnValue = value;
-    _sendControlData();
+    _yawSender.update(value);
   }
 
   void _onLeftJoystickChanged(StickDragDetails details) {
     _leftJoystickX = details.x;
     _leftJoystickY = details.y;
-    _sendControlData();
+    _leftLegSender.update(_joystickToLegHeight(_leftJoystickY));
   }
 
   void _onRightJoystickChanged(StickDragDetails details) {
     _rightJoystickX = details.x;
     _rightJoystickY = details.y;
-    _sendControlData();
+    _rightLegSender.update(_joystickToLegHeight(_rightJoystickY));
+  }
+
+  double _joystickToLegHeight(double value) {
+    final percent = ((-value + 1) / 2) * 100;
+    return percent.clamp(0.0, 100.0);
+  }
+
+  void _sendLegacyControlData(BluetoothManager manager) {
+    if (!_isStarted) return;
+    final speed = (_throttleValue * 100).toInt();
+    final turn = (_turnValue * 100).toInt();
+    final lx = (_leftJoystickX * 100).toInt();
+    final ly = (_leftJoystickY * 100).toInt();
+    final rx = (_rightJoystickX * 100).toInt();
+    final ry = (_rightJoystickY * 100).toInt();
+    final data = "SPEED:$speed|TURN:$turn|LX:$lx|LY:$ly|RX:$rx|RY:$ry\n";
+    manager.sendData(data);
+  }
+
+  void _sendVelocity(double value) {
+    if (!mounted) return;
+    final manager = context.read<BluetoothManager>();
+    manager.updateVelocity(value);
+    if (manager.mode != BluetoothMode.ble) {
+      _sendLegacyControlData(manager);
+    }
+  }
+
+  void _sendYaw(double value) {
+    if (!mounted) return;
+    final manager = context.read<BluetoothManager>();
+    manager.updateYaw(value);
+    if (manager.mode != BluetoothMode.ble) {
+      _sendLegacyControlData(manager);
+    }
+  }
+
+  void _sendLeftLegHeight(double value) {
+    if (!mounted) return;
+    final manager = context.read<BluetoothManager>();
+    if (manager.mode == BluetoothMode.ble) {
+      manager.updateLeftLegHeight(value);
+    } else {
+      _sendLegacyControlData(manager);
+    }
+  }
+
+  void _sendRightLegHeight(double value) {
+    if (!mounted) return;
+    final manager = context.read<BluetoothManager>();
+    if (manager.mode == BluetoothMode.ble) {
+      manager.updateRightLegHeight(value);
+    } else {
+      _sendLegacyControlData(manager);
+    }
   }
 
   void _toggleStartStop() {
+    final manager = context.read<BluetoothManager>();
     setState(() {
       _isStarted = !_isStarted;
     });
-    if (!_isStarted) {
+
+    if (_isStarted) {
+      manager.sendActionCommand(RobotActionCodes.start);
+      if (manager.mode != BluetoothMode.ble) {
+        manager.sendData("START\n");
+        _sendLegacyControlData(manager);
+      } else {
+        _velocitySender.forceSend(_throttleValue);
+        _yawSender.forceSend(_turnValue);
+        _leftLegSender.forceSend(_joystickToLegHeight(_leftJoystickY));
+        _rightLegSender.forceSend(_joystickToLegHeight(_rightJoystickY));
+      }
+    } else {
       _throttleValue = 0;
       _turnValue = 0;
       _leftJoystickX = 0;
       _leftJoystickY = 0;
       _rightJoystickX = 0;
       _rightJoystickY = 0;
-      context.read<BluetoothManager>().sendData("STOP\n");
-    } else {
-      context.read<BluetoothManager>().sendData("START\n");
+      manager.sendActionCommand(RobotActionCodes.stop);
+      if (manager.mode != BluetoothMode.ble) {
+        manager.sendData("STOP\n");
+      } else {
+        _velocitySender.forceSend(0);
+        _yawSender.forceSend(0);
+        final resetHeight = _joystickToLegHeight(0);
+        _leftLegSender.forceSend(resetHeight);
+        _rightLegSender.forceSend(resetHeight);
+      }
     }
   }
 
@@ -1001,5 +1080,65 @@ class _BluetoothConnectionDialogState extends State<BluetoothConnectionDialog> {
       ),
       onTap: onTap,
     );
+  }
+}
+
+class _RateLimitedSender {
+  _RateLimitedSender({
+    required this.onSend,
+  }) : minInterval = const Duration(milliseconds: 50);
+
+  final void Function(double value) onSend;
+  final Duration minInterval;
+
+  DateTime? _lastSent;
+  Timer? _pendingTimer;
+  double? _pendingValue;
+  double? _lastSentValue;
+
+  void update(double value) {
+    if (_pendingValue == null && _lastSentValue != null && value == _lastSentValue) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final elapsed = _lastSent == null ? minInterval : now.difference(_lastSent!);
+    if (_lastSent == null || elapsed >= minInterval) {
+      _dispatch(value);
+    } else {
+      final delay = minInterval - elapsed;
+      _pendingValue = value;
+      _pendingTimer?.cancel();
+      _pendingTimer = Timer(delay, () {
+        if (_pendingValue != null) {
+          _dispatch(_pendingValue!);
+        }
+      });
+    }
+  }
+
+  void forceSend(double value) {
+    _dispatch(value, force: true);
+  }
+
+  void _dispatch(double value, {bool force = false}) {
+    _pendingTimer?.cancel();
+    _pendingTimer = null;
+    _pendingValue = null;
+
+    if (!force && _lastSentValue != null && value == _lastSentValue) {
+      _lastSent = DateTime.now();
+      return;
+    }
+
+    onSend(value);
+    _lastSentValue = value;
+    _lastSent = DateTime.now();
+  }
+
+  void dispose() {
+    _pendingTimer?.cancel();
+    _pendingTimer = null;
+    _pendingValue = null;
   }
 }

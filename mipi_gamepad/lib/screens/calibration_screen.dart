@@ -24,24 +24,39 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
 
   final List<String> _groupNames = ['Pitch', 'Roll', 'Yaw'];
   final List<String> _paramNames = ['P', 'I', 'D'];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadInitialPidValues();
+    });
+  }
 
   void _onSliderChanged(int groupIndex, int paramIndex, double value) {
     setState(() {
       _pids[groupIndex][paramIndex] = value;
     });
-    _sendCalibrationData();
   }
 
-  void _sendCalibrationData() {
-    // Format: CAL:G:P:V (Calibration:Group:Param:Value) or similar
-    // Or send all: CAL:P1,I1,D1;P2,I2,D2;P3,I3,D3
-    String data = "CAL:";
-    for (var group in _pids) {
-      data += "${group[0].toStringAsFixed(2)},${group[1].toStringAsFixed(2)},${group[2].toStringAsFixed(2)};";
+  void _sendPidGroup(int groupIndex) {
+    if (!mounted) return;
+    context.read<BluetoothManager>().updatePidGroup(groupIndex, List<double>.from(_pids[groupIndex]));
+  }
+
+  Future<void> _loadInitialPidValues() async {
+    final manager = context.read<BluetoothManager>();
+    if (!manager.isConnected || manager.mode != BluetoothMode.ble) return;
+    for (int groupIndex = 0; groupIndex < _pids.length; groupIndex++) {
+      final values = await manager.readPidGroup(groupIndex);
+      if (!mounted) return;
+      if (values != null && values.length >= 3) {
+        setState(() {
+          for (int paramIndex = 0; paramIndex < 3; paramIndex++) {
+            _pids[groupIndex][paramIndex] = values[paramIndex];
+          }
+        });
+      }
     }
-    data += "\n";
-    
-    context.read<BluetoothManager>().sendData(data);
   }
 
   @override
@@ -94,7 +109,7 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
     return Column(
       children: [
         Text(
-          _pids[groupIndex][paramIndex].toStringAsFixed(1),
+          _pids[groupIndex][paramIndex].toStringAsFixed(2),
           style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         Expanded(
@@ -102,11 +117,13 @@ class _CalibrationScreenState extends State<CalibrationScreen> {
             quarterTurns: 3,
             child: Slider(
               value: _pids[groupIndex][paramIndex],
-              min: 0.0,
-              max: 10.0,
+              min: -5.0,
+              max: 5.0,
+              divisions: 100,
               activeColor: AppColors.accent,
               inactiveColor: AppColors.shadowLight,
               onChanged: (val) => _onSliderChanged(groupIndex, paramIndex, val),
+                onChangeEnd: (_) => _sendPidGroup(groupIndex),
             ),
           ),
         ),
