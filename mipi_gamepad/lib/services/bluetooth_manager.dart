@@ -15,22 +15,22 @@ class BleUuids {
     'ff02',
     'ff03',
     'ff04',
-  ];
-  static const velocity = 'ff05';
-  static const yawAngle = 'ff06';
-  static const pitchAxis = 'ff07';
-  static const pitchOffset = 'ff08';
-  static const robotHeight = 'ff09';
-  static const leftLeg = 'ff0a';
-  static const rightLeg = 'ff0b';
+  ]; // each represents a PID group
+  static const leftThrottle = 'ff05';
+  static const rightThrottle = 'ff06';
+  static const leftJoy = 'ff0a';
+  static const rightJoy = 'ff0b';
   static const fallenStatus = 'ff0c';
-  static const action = 'ff0d';
+  static const isRunning = 'ff0d';
+  static const action = 'ff0e';
 }
 
 class RobotActionCodes {
-  static const int stop = 0;
-  static const int start = 1;
-  static const int dance = 2;
+  static const int dance = 0;
+  static const int sleep = 1;
+  static const int standUp = 2;
+  static const int sitDown = 3;
+  static const int wave = 4;
 }
 
 class BluetoothManager extends ChangeNotifier {
@@ -44,6 +44,10 @@ class BluetoothManager extends ChangeNotifier {
   List<ble.ScanResult> _bleScanResults = [];
   StreamSubscription? _bleScanSubscription;
   StreamSubscription? _bleConnectionSubscription;
+  StreamSubscription? _isRunningSubscription;
+
+  // Robot state
+  bool _isRunning = false;
 
   // Classic
   classic.BluetoothConnection? _classicConnection;
@@ -56,6 +60,7 @@ class BluetoothManager extends ChangeNotifier {
   List<ble.ScanResult> get bleScanResults => _bleScanResults;
   List<classic.BluetoothDiscoveryResult> get classicScanResults => _classicScanResults;
   bool get isConnected => _connectionState == AppConnectionState.connected;
+  bool get isRunning => _isRunning;
   String? get connectedDeviceName {
     if (_mode == BluetoothMode.ble) return _bleDevice?.platformName;
     if (_mode == BluetoothMode.classic) return _classicConnection?.isConnected == true ? "Classic Device" : null; // Classic connection doesn't easily store name after connect unless we save it
@@ -175,6 +180,9 @@ class BluetoothManager extends ChangeNotifier {
         }
       });
 
+      // Subscribe to isRunning notifications
+      await _subscribeToIsRunning();
+
       _connectionState = AppConnectionState.connected;
       notifyListeners();
     } catch (e) {
@@ -205,6 +213,9 @@ class BluetoothManager extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    _isRunningSubscription?.cancel();
+    _isRunningSubscription = null;
+    _isRunning = false;
     if (_mode == BluetoothMode.ble) {
       if (_bleDevice != null) {
         await _bleDevice!.disconnect();
@@ -238,24 +249,24 @@ class BluetoothManager extends ChangeNotifier {
     }
   }
 
-  Future<void> updateVelocity(double value) async {
+  Future<void> updateLeftThrottle(double value) async {
     if (_mode != BluetoothMode.ble) return;
-    await _writeFloat(BleUuids.velocity, value);
+    await _writeFloat(BleUuids.leftThrottle, value);
   }
 
-  Future<void> updateYaw(double value) async {
+  Future<void> updateRightThrottle(double value) async {
     if (_mode != BluetoothMode.ble) return;
-    await _writeFloat(BleUuids.yawAngle, value);
+    await _writeFloat(BleUuids.rightThrottle, value);
   }
 
-  Future<void> updateLeftLegHeight(double value) async {
+  Future<void> updateLeftJoy(double valueX, double valueY) async {
     if (_mode != BluetoothMode.ble) return;
-    await _writeFloat(BleUuids.leftLeg, value);
+    await _writeFloatArray(BleUuids.leftJoy, [valueX, valueY]);
   }
 
-  Future<void> updateRightLegHeight(double value) async {
+  Future<void> updateRightJoy(double valueX, double valueY) async {
     if (_mode != BluetoothMode.ble) return;
-    await _writeFloat(BleUuids.rightLeg, value);
+    await _writeFloatArray(BleUuids.rightJoy, [valueX, valueY]);
   }
 
   Future<void> updatePidGroup(int groupIndex, List<double> values) async {
@@ -271,9 +282,50 @@ class BluetoothManager extends ChangeNotifier {
     return _readFloatArray(BleUuids.pidGroups[groupIndex], 3);
   }
 
+  Future<void> sendIsRunningCommand(bool isRunning) async {
+    if (_mode != BluetoothMode.ble) return;
+    await _writeUint8(BleUuids.isRunning, isRunning ? 1 : 0);
+  }
+
   Future<void> sendActionCommand(int code) async {
     if (_mode != BluetoothMode.ble) return;
     await _writeUint8(BleUuids.action, code);
+  }
+
+  Future<void> _subscribeToIsRunning() async {
+    final characteristic = _bleCharacteristics[BleUuids.isRunning.toLowerCase()];
+    if (characteristic == null) return;
+
+    // Read initial value
+    if (characteristic.properties.read) {
+      try {
+        final bytes = await characteristic.read();
+        if (bytes.isNotEmpty) {
+          _isRunning = bytes[0] != 0;
+          notifyListeners();
+        }
+      } catch (e) {
+        debugPrint('Read isRunning failed: $e');
+      }
+    }
+
+    // Subscribe to notifications
+    if (characteristic.properties.notify) {
+      try {
+        await characteristic.setNotifyValue(true);
+        _isRunningSubscription = characteristic.onValueReceived.listen((bytes) {
+          if (bytes.isNotEmpty) {
+            final newValue = bytes[0] != 0;
+            if (_isRunning != newValue) {
+              _isRunning = newValue;
+              notifyListeners();
+            }
+          }
+        });
+      } catch (e) {
+        debugPrint('Subscribe isRunning failed: $e');
+      }
+    }
   }
 
   Future<void> _writeFloat(String uuid, double value) async {

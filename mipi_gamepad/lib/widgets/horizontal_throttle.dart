@@ -19,7 +19,7 @@ class _HorizontalThrottleState extends State<HorizontalThrottle> {
     double center = maxWidth / 2;
     double offset = localX - center;
     double maxMove = (maxWidth - _thumbWidth) / 2;
-    
+
     double normalized = (offset / maxMove).clamp(-1.0, 1.0);
 
     setState(() {
@@ -36,7 +36,7 @@ class _HorizontalThrottleState extends State<HorizontalThrottle> {
         double height = 80;
         double center = width / 2;
         double maxMove = (width - _thumbWidth) / 2;
-        
+
         double thumbX = center + (_value * maxMove) - (_thumbWidth / 2);
 
         return Column(
@@ -55,14 +55,14 @@ class _HorizontalThrottleState extends State<HorizontalThrottle> {
               child: Container(
                 width: width,
                 height: height,
-                decoration: AppStyles.neumorphicDecoration(borderRadius: 40),
+                decoration: AppStyles.controlContainerDecoration(),
                 child: Stack(
                   children: [
                     // Center Line
                     Center(
                       child: Container(
                         width: width - 40,
-                        height: 4,
+                        height: 6,
                         color: AppColors.shadowDark.withOpacity(0.5),
                       ),
                     ),
@@ -73,19 +73,11 @@ class _HorizontalThrottleState extends State<HorizontalThrottle> {
                       bottom: 10,
                       child: Container(
                         width: _thumbWidth,
-                        decoration: AppStyles.neumorphicDecoration(
-                          color: AppColors.accent,
-                          borderRadius: 15,
-                        ).copyWith(
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.accent.withOpacity(0.4),
-                              blurRadius: 10,
-                              spreadRadius: 2,
-                            )
-                          ]
+                        decoration: AppStyles.controlThumbDecoration(),
+                        child: const Icon(
+                          Icons.drag_handle,
+                          color: Colors.white,
                         ),
-                        child: const Icon(Icons.drag_handle, color: Colors.white),
                       ),
                     ),
                   ],

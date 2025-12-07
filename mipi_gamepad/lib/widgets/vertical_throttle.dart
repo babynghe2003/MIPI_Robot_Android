@@ -19,13 +19,13 @@ class _VerticalThrottleState extends State<VerticalThrottle> {
     double center = maxHeight / 2;
     // Calculate offset from center
     double offset = localY - center;
-    
+
     // Normalize to -1.0 to 1.0
     // Max movement is (maxHeight - thumbHeight) / 2
     double maxMove = (maxHeight - _thumbHeight) / 2;
-    
+
     double normalized = (offset / maxMove).clamp(-1.0, 1.0);
-    
+
     // Invert because Y goes down
     // Up should be positive (Forward), Down negative (Backward)
     // But in screen coords, Up is smaller Y.
@@ -47,12 +47,12 @@ class _VerticalThrottleState extends State<VerticalThrottle> {
         double width = 80;
         double center = height / 2;
         double maxMove = (height - _thumbHeight) / 2;
-        
+
         // Calculate thumb position from value
         // value 1.0 -> top -> center - maxMove
         // value -1.0 -> bottom -> center + maxMove
         // value 0.0 -> center
-        
+
         double thumbY = center - (_value * maxMove) - (_thumbHeight / 2);
 
         return GestureDetector(
@@ -69,13 +69,13 @@ class _VerticalThrottleState extends State<VerticalThrottle> {
           child: Container(
             width: width,
             height: height,
-            decoration: AppStyles.neumorphicDecoration( borderRadius: 40),
+            decoration: AppStyles.controlContainerDecoration(),
             child: Stack(
               children: [
                 // Center Line
                 Center(
                   child: Container(
-                    width: 4,
+                    width: 6,
                     height: height - 40,
                     color: AppColors.shadowDark.withOpacity(0.5),
                   ),
@@ -87,18 +87,7 @@ class _VerticalThrottleState extends State<VerticalThrottle> {
                   right: 10,
                   child: Container(
                     height: _thumbHeight,
-                    decoration: AppStyles.neumorphicDecoration(
-                      color: AppColors.accent,
-                      borderRadius: 15,
-                    ).copyWith(
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accent.withOpacity(0.4),
-                          blurRadius: 10,
-                          spreadRadius: 2,
-                        )
-                      ]
-                    ),
+                    decoration: AppStyles.controlThumbDecoration(),
                     child: const Icon(Icons.drag_handle, color: Colors.white),
                   ),
                 ),

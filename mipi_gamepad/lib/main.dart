@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'screens/home_screen.dart';
+import 'features/home/home_screen.dart';
 import 'services/bluetooth_manager.dart';
 import 'utils/constants.dart';
 

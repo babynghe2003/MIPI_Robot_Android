@@ -111,12 +111,9 @@ class _CustomJoystickState extends State<CustomJoystick> {
               child: Container(
                 width: widget.baseSize,
                 height: widget.baseSize,
-                decoration: AppStyles.neumorphicDecoration(
-                  borderRadius: baseRadius,
-                  pressed: false, // Raised effect for base
-                ).copyWith(
-                  image: DecorationImage(
-                    image: const AssetImage('resources/images/JoyBase.png'),
+                decoration: AppStyles.joystickBaseDecoration().copyWith(
+                  image: const DecorationImage(
+                    image: AssetImage('resources/images/JoyBase.png'),
                     fit: BoxFit.contain,
                   ),
                 ),
